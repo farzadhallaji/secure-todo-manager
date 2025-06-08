@@ -16,7 +16,7 @@ A single-file, encrypted todo manager with password protection. No servers, no d
 ## 🚀 Quick Start
 
 ### Online Version
-Visit: `https://[your-username].github.io/secure-todo-manager/`
+Visit: `https://farzadhallaji.github.io/secure-todo-manager/`
 
 ### Local Version
 1. Download the `index.html` file
