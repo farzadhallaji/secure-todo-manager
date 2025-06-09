@@ -41,7 +41,8 @@
         }
 
         h2 {
-            color: #ff8c42;
+            color: #e0e0e0;
+            font-size: 20px;
             margin-bottom: 20px;
         }
 
@@ -187,18 +188,32 @@
             opacity: 1;
         }
 
-        .logout-btn {
+        .top-bar {
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #2a2a2a;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+
+        .top-bar button {
+            padding: 8px 16px;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .logout-btn {
             background: #d32f2f;
         }
 
-        #downloadBtn {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            background: #4caf50;
+        .main-container {
+            margin-top: 80px;
         }
 
         textarea {
@@ -228,19 +243,65 @@
         .priority-low {
             border-left-color: #4caf50 !important;
         }
+
+        [contenteditable="true"] {
+            cursor: text;
+            padding: 4px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        [contenteditable="true"]:hover {
+            background-color: rgba(255, 140, 66, 0.1);
+        }
+
+        [contenteditable="true"]:focus {
+            background-color: rgba(255, 140, 66, 0.2);
+            outline: 2px solid #ff8c42;
+        }
+
+        .secondary-btn {
+            background: #666;
+        }
+
+        .notification {
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            z-index: 10000;
+        }
     </style>
 </head>
 <body>
     <div class="login-container" id="loginContainer">
         <h1>🔒 Secure Todo Manager</h1>
-        <input type="password" id="passwordInput" placeholder="Enter your password">
-        <button onclick="login()">Login</button>
-        <p style="color: #888; margin-top: 20px; text-align: center;">Your data is encrypted and stored locally</p>
+        <div id="signupForm" style="display: none;">
+            <h2>Create Your Password</h2>
+            <p style="color: #888; margin-bottom: 20px;">First time? Create a password to protect your data.</p>
+            <input type="password" id="newPasswordInput" placeholder="Create password (min 6 characters)">
+            <input type="password" id="confirmPasswordInput" placeholder="Confirm password">
+            <button onclick="signup()">Create Account</button>
+            <p style="color: #ff8c42; margin-top: 20px; font-size: 14px;">⚠️ Remember this password! It cannot be recovered.</p>
+        </div>
+        <div id="loginForm" style="display: none;">
+            <h2>Welcome Back</h2>
+            <input type="password" id="passwordInput" placeholder="Enter your password">
+            <button onclick="login()">Login</button>
+            <button onclick="forgotPassword()" class="secondary-btn">Reset (Delete All Data)</button>
+        </div>
     </div>
 
     <div class="main-container" id="mainContainer">
-        <button class="logout-btn" onclick="logout()">Logout</button>
-        <button id="downloadBtn" onclick="downloadHTML()">💾 Save HTML File</button>
+        <div class="top-bar">
+            <button onclick="downloadHTML()">💾 Save Backup</button>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
         
         <h1>📋 My Todo Manager</h1>
         
@@ -320,10 +381,19 @@
         </div>
     </div>
 
-    <div class="save-status" id="saveStatus">✓ Auto-saved</div>
+    <div class="save-status" id="saveStatus">✓ Saved</div>
 
     <script>
-        // Simple encryption/decryption functions
+        // Global variables
+        let currentPassword = '';
+        let data = {
+            todos: [],
+            tasks: [],
+            goals: [],
+            notes: []
+        };
+
+        // Encryption functions
         function encrypt(text, password) {
             let result = '';
             for (let i = 0; i < text.length; i++) {
@@ -345,32 +415,23 @@
             }
         }
 
-        let currentPassword = '';
-        let data = {
-            todos: [],
-            tasks: [],
-            goals: [],
-            notes: []
-        };
-
-        // Load encrypted data from script tag
+        // Data management
         function loadData() {
             const dataElement = document.getElementById('encryptedData');
-            if (dataElement && dataElement.textContent) {
+            if (dataElement && dataElement.textContent.trim()) {
                 try {
-                    const decryptedData = decrypt(dataElement.textContent, currentPassword);
+                    const decryptedData = decrypt(dataElement.textContent.trim(), currentPassword);
                     if (decryptedData) {
                         data = JSON.parse(decryptedData);
                         return true;
                     }
                 } catch (e) {
-                    console.error('Failed to decrypt data');
+                    return false;
                 }
             }
             return false;
         }
 
-        // Save data to script tag
         function saveData() {
             let dataElement = document.getElementById('encryptedData');
             if (!dataElement) {
@@ -383,37 +444,75 @@
             showSaveStatus();
         }
 
+        // UI Functions
         function showSaveStatus() {
             const status = document.getElementById('saveStatus');
             status.classList.add('show');
-            setTimeout(() => {
-                status.classList.remove('show');
-            }, 2000);
+            setTimeout(() => status.classList.remove('show'), 2000);
+        }
+
+        function showNotification(message) {
+            const existing = document.querySelector('.notification');
+            if (existing) existing.remove();
+            
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        // Authentication
+        function checkUserStatus() {
+            const dataElement = document.getElementById('encryptedData');
+            const hasData = dataElement && dataElement.textContent.trim();
+            
+            document.getElementById('loginForm').style.display = hasData ? 'block' : 'none';
+            document.getElementById('signupForm').style.display = hasData ? 'none' : 'block';
+        }
+
+        function signup() {
+            const newPassword = document.getElementById('newPasswordInput').value;
+            const confirmPassword = document.getElementById('confirmPasswordInput').value;
+            
+            if (!newPassword || !confirmPassword) {
+                alert('Please fill in both password fields');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                alert('Password must be at least 6 characters long');
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                alert('Passwords do not match');
+                return;
+            }
+            
+            currentPassword = newPassword;
+            saveData();
+            
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('mainContainer').style.display = 'block';
+            renderAll();
+            showNotification('Account created! Remember to save a backup.');
         }
 
         function login() {
             const password = document.getElementById('passwordInput').value;
             if (!password) {
-                alert('Please enter a password');
+                alert('Please enter your password');
                 return;
             }
             
             currentPassword = password;
             
-            // Check if there's existing encrypted data
-            const dataElement = document.getElementById('encryptedData');
-            const hasExistingData = dataElement && dataElement.textContent && dataElement.textContent.trim() !== '';
-            
-            if (hasExistingData) {
-                // Try to decrypt existing data
-                if (!loadData()) {
-                    alert('Incorrect password');
-                    currentPassword = '';
-                    return;
-                }
-            } else {
-                // First time - accept any password and create empty data
-                saveData(); // Save empty data with the new password
+            if (!loadData()) {
+                alert('Incorrect password');
+                currentPassword = '';
+                document.getElementById('passwordInput').value = '';
+                return;
             }
             
             document.getElementById('loginContainer').style.display = 'none';
@@ -427,13 +526,30 @@
             document.getElementById('loginContainer').style.display = 'block';
             document.getElementById('mainContainer').style.display = 'none';
             document.getElementById('passwordInput').value = '';
+            document.getElementById('newPasswordInput').value = '';
+            document.getElementById('confirmPasswordInput').value = '';
+            checkUserStatus();
         }
 
+        function forgotPassword() {
+            if (!confirm('WARNING: This will DELETE ALL YOUR DATA!\n\nContinue?')) return;
+            if (!confirm('FINAL WARNING: All data will be lost. Continue?')) return;
+            
+            const dataElement = document.getElementById('encryptedData');
+            if (dataElement) dataElement.textContent = '';
+            
+            data = { todos: [], tasks: [], goals: [], notes: [] };
+            currentPassword = '';
+            checkUserStatus();
+            alert('All data cleared. Create a new password.');
+        }
+
+        // Section management
         function toggleSection(sectionId) {
-            const section = document.getElementById(sectionId);
-            section.classList.toggle('expanded');
+            document.getElementById(sectionId).classList.toggle('expanded');
         }
 
+        // Item management
         function addItem(type) {
             const titleInput = document.getElementById(type.slice(0, -1) + 'Title');
             const descriptionInput = document.getElementById(type.slice(0, -1) + 'Description');
@@ -448,15 +564,14 @@
                 return;
             }
             
-            const item = {
+            data[type].push({
                 id: Date.now(),
                 title,
                 description,
                 priority,
                 createdAt: new Date().toISOString()
-            };
+            });
             
-            data[type].push(item);
             saveData();
             renderList(type);
             
@@ -466,10 +581,26 @@
         }
 
         function deleteItem(type, id) {
-            if (confirm('Are you sure you want to delete this item?')) {
+            if (confirm('Delete this item?')) {
                 data[type] = data[type].filter(item => item.id !== id);
                 saveData();
                 renderList(type);
+            }
+        }
+
+        function updateItemTitle(type, id, newTitle) {
+            const item = data[type].find(item => item.id === id);
+            if (item && item.title !== newTitle) {
+                item.title = newTitle;
+                saveData();
+            }
+        }
+
+        function updateItemDescription(type, id, newDescription) {
+            const item = data[type].find(item => item.id === id);
+            if (item && item.description !== newDescription) {
+                item.description = newDescription;
+                saveData();
             }
         }
 
@@ -482,10 +613,13 @@
                 itemElement.className = `item priority-${item.priority || 'medium'}`;
                 itemElement.innerHTML = `
                     <div class="item-header">
-                        <strong>${item.title}</strong>
+                        <strong contenteditable="true" 
+                                onblur="updateItemTitle('${type}', ${item.id}, this.textContent)">${item.title}</strong>
                         <button class="delete-btn" onclick="deleteItem('${type}', ${item.id})">Delete</button>
                     </div>
-                    <div class="item-content">${item.description}</div>
+                    <div class="item-content" 
+                         contenteditable="true" 
+                         onblur="updateItemDescription('${type}', ${item.id}, this.textContent)">${item.description}</div>
                 `;
                 listElement.appendChild(itemElement);
             });
@@ -498,26 +632,46 @@
             renderList('notes');
         }
 
+        // Download function
         function downloadHTML() {
-            const html = document.documentElement.outerHTML;
-            const blob = new Blob([html], { type: 'text/html' });
+            saveData(); // Ensure latest data is saved
+            
+            // Get current page HTML
+            const currentHTML = document.documentElement.outerHTML;
+            
+            // Create blob and download
+            const blob = new Blob([currentHTML], { type: 'text/html;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'secure-todo-manager.html';
+            a.download = `todo-backup-${new Date().toISOString().slice(0,10)}.html`;
             a.click();
             URL.revokeObjectURL(url);
+            
+            showNotification('Backup downloaded!');
         }
 
-        // Auto-save on any change
-        document.addEventListener('input', function(e) {
-            if (currentPassword && e.target.tagName === 'TEXTAREA') {
-                saveData();
-            }
+        // Initialize on load
+        window.addEventListener('load', function() {
+            // ALWAYS reset everything and force login
+            currentPassword = '';
+            data = { todos: [], tasks: [], goals: [], notes: [] };
+            
+            // Clear all input fields
+            document.getElementById('passwordInput').value = '';
+            document.getElementById('newPasswordInput').value = '';
+            document.getElementById('confirmPasswordInput').value = '';
+            
+            // ALWAYS show login container, hide main
+            document.getElementById('loginContainer').style.display = 'block';
+            document.getElementById('mainContainer').style.display = 'none';
+            
+            // Check if user has existing data
+            checkUserStatus();
         });
     </script>
     
-    <!-- Encrypted data will be stored here -->
+    <!-- Encrypted data storage -->
     <script id="encryptedData" type="text/data"></script>
 </body>
 </html>
